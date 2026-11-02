@@ -36,8 +36,9 @@ b.onclick=()=>toggleStart(s);days.append(b)}
 const h=$('history');h.replaceChildren();h.className='history';if(!data.starts.length){h.textContent='Henüz kayıt yok. Takvimden bir gün seçebilirsin.';h.className='history note'}
 else for(const s of [...data.starts].reverse()){const c=document.createElement('span');c.className='chip';c.textContent=full(s);const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label',full(s)+' kaydını sil');x.onclick=()=>toggleStart(s);c.append(x);h.append(c)}}
 async function load(){if(!user)return;const uid=user.id,v=++version;status('Bulut kayıtların yükleniyor…');
-const [p,r]=await Promise.all([client.from('profiles').select('cycle_length,period_length').eq('user_id',uid).maybeSingle(),client.from('periods').select('start_date').eq('user_id',uid).order('start_date',{ascending:true})]);
+const [p,r,identity]=await Promise.all([client.from('profiles').select('cycle_length,period_length').eq('user_id',uid).maybeSingle(),client.from('periods').select('start_date').eq('user_id',uid).order('start_date',{ascending:true}),client.auth.getUser()]);
 if(v!==version||!user||user.id!==uid)return;
+if(!identity.error&&identity.data?.user?.id===uid)user=identity.data.user;
 if(p.error||r.error){signedIn();status('Kayıtlar yüklenemedi: '+err(p.error||r.error));return}
 data={cycle:p.data?.cycle_length??28,duration:p.data?.period_length??5,starts:(r.data||[]).map(x=>x.start_date).filter(valid).sort()};
 signedIn();status('Bulut kayıtların güncel ✓')}
