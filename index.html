@@ -63,7 +63,7 @@ const r=await client.auth.signInWithPassword({email,password});
 if(r.error)throw r.error;$('authMessage').textContent='Giriş başarılı ✓'}
 catch(e){$('authMessage').textContent='Giriş yapılamadı: '+err(e)}finally{$('authSubmit').disabled=false}};
 
-const PUSH_PUBLIC_KEY=''; // Deployment: paste generated VAPID public key (never private key)
+const PUSH_PUBLIC_KEY='BAvPtiDMh4PBPCuGdQ8Y6jKyztJGAXH1BjkV8UERueJp06cYQD1Au-sUUdH0ulC4o66czYF0S1lTmXyRwY4nrks'; // Deployment: paste generated VAPID public key (never private key)
 function pushMessage(message){$('pushStatus').textContent=message}
 function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
 function vapidBytes(base64){const p=(base64+'='.repeat((4-base64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(p),c=>c.charCodeAt(0))}
