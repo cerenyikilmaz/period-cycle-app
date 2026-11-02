@@ -83,13 +83,16 @@ function pushMessage(message){$('pushStatus').textContent=message}
 function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
 function vapidBytes(base64){const p=(base64+'='.repeat((4-base64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(p),c=>c.charCodeAt(0))}
 async function pushSubscription(){if(!pushSupported())return null;const reg=await navigator.serviceWorker.getRegistration('/');return reg?reg.pushManager.getSubscription():null}
-async function refreshPushUI(){if(!user)return;try{const sub=await pushSubscription();$('pushDisable').hidden=!sub;$('pushTest').hidden=!sub;$('pushEnable').hidden=!!sub;pushMessage(sub?'Bu cihazda bildirimler açık ♡':'Bu cihazda bildirimler kapalı.')}catch(e){pushMessage('Bildirim durumu alınamadı: '+err(e))}}
+async function refreshPushUI(){if(!user)return;const uid=user.id;try{const permission=pushSupported()?Notification.permission:'unsupported';const sub=permission==='granted'?await pushSubscription():null;let active=false;if(sub){const {data:record,error}=await client.from('push_subscriptions').select('enabled').eq('user_id',uid).eq('endpoint',sub.endpoint).maybeSingle();if(error)throw error;active=record?.enabled===true}
+if(!user||user.id!==uid)return;
+$('pushDisable').hidden=!active;$('pushTest').hidden=!active;$('pushEnable').hidden=active;
+pushMessage(active?'Bu cihazda bildirimler açık ♡':permission==='denied'?'Bildirim izni cihaz ayarlarından kapatılmış.':sub?'Bildirim izni açık, ancak bu cihazın aboneliği hesabına bağlı değil. Yeniden etkinleştir.':permission==='granted'?'Bildirim izni açık, ancak bu cihaz için abonelik bulunamadı. Yeniden etkinleştir.':'Bu cihazda bildirimler kapalı.')}catch(e){pushMessage('Bildirim durumu alınamadı: '+err(e))}}
 $('pushEnable').onclick=async()=>{if(!user)return;if(!pushSupported()){pushMessage('Bu tarayıcı Web Push desteklemiyor. iPhone için siteyi Ana Ekran’a ekle.');return}if(!PUSH_PUBLIC_KEY){pushMessage('Bildirim sunucusu henüz yapılandırılmadı.');return}
 try{const permission=await Notification.requestPermission();if(permission!=='granted'){pushMessage('Bildirim izni verilmedi.');return}
 await navigator.serviceWorker.register('/sw.js',{scope:'/'});
 const reg=await navigator.serviceWorker.ready;
 if(!reg.active)throw new Error('Bildirim servisi henüz etkinleşmedi. Sayfayı yenileyip tekrar dene.');
-const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(PUSH_PUBLIC_KEY)});
+const sub=(await reg.pushManager.getSubscription())||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(PUSH_PUBLIC_KEY)});
 const r=await client.from('push_subscriptions').upsert({user_id:user.id,endpoint:sub.endpoint,subscription:sub.toJSON(),enabled:true},{onConflict:'endpoint'});
 if(r.error)throw r.error;await refreshPushUI();pushMessage('Regl hatırlatmaları bu cihaz için açıldı ✓')}
 catch(e){pushMessage('Bildirimler açılamadı: '+err(e))}};
