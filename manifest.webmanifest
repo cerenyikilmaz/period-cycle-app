@@ -1,0 +1,18 @@
+{
+  "name": "My Cycle",
+  "short_name": "My Cycle",
+  "description": "Kişisel döngü takibim",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff5ec",
+  "theme_color": "#822344",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
