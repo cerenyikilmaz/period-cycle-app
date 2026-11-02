@@ -1,0 +1,1 @@
+self.addEventListener('push',event=>{let data={};try{data=event.data?event.data.json():{}}catch{}event.waitUntil(self.registration.showNotification('My Cycle 🌸',{body:data.body||'Regl tarihin yaklaşıyor 💗',tag:'my-cycle-reminder',data:{url:'/'}}))});self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(clients.openWindow('/'))});
