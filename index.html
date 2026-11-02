@@ -71,7 +71,9 @@ async function pushSubscription(){if(!pushSupported())return null;const reg=awai
 async function refreshPushUI(){if(!user)return;try{const sub=await pushSubscription();$('pushDisable').hidden=!sub;$('pushEnable').hidden=!!sub;pushMessage(sub?'Bu cihazda bildirimler açık ♡':'Bu cihazda bildirimler kapalı.')}catch(e){pushMessage('Bildirim durumu alınamadı: '+err(e))}}
 $('pushEnable').onclick=async()=>{if(!user)return;if(!pushSupported()){pushMessage('Bu tarayıcı Web Push desteklemiyor. iPhone için siteyi Ana Ekran’a ekle.');return}if(!PUSH_PUBLIC_KEY){pushMessage('Bildirim sunucusu henüz yapılandırılmadı.');return}
 try{const permission=await Notification.requestPermission();if(permission!=='granted'){pushMessage('Bildirim izni verilmedi.');return}
-const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+const reg=await navigator.serviceWorker.ready;
+if(!reg.active)throw new Error('Bildirim servisi henüz etkinleşmedi. Sayfayı yenileyip tekrar dene.');
 const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(PUSH_PUBLIC_KEY)});
 const r=await client.from('push_subscriptions').upsert({user_id:user.id,endpoint:sub.endpoint,subscription:sub.toJSON(),enabled:true},{onConflict:'endpoint'});
 if(r.error)throw r.error;await refreshPushUI();pushMessage('Regl hatırlatmaları bu cihaz için açıldı ✓')}
