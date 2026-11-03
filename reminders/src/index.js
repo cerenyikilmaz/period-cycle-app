@@ -48,7 +48,33 @@ async function sendReminders(env){
   }
   return {sent,failed};
 }
+// One-off scheduled test. Remove the TEST_* secrets after the first successful run.
+async function sendOneTimeTest(env){
+  if(!env.TEST_USER_ID || !env.TEST_RUN_ID)return;
+  const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY'];
+  for(const key of required)if(!env[key])throw new Error('Missing Worker secret: '+key);
+  const client=createClient(env.SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{autoRefreshToken:false,persistSession:false}});
+  const runId=env.TEST_RUN_ID;
+  const {data:subs,error}=await client.from('push_subscriptions').select('user_id,endpoint,subscription').eq('user_id',env.TEST_USER_ID).eq('enabled',true);
+  if(error)throw error;
+  webpush.setVapidDetails('mailto:'+(env.VAPID_CONTACT_EMAIL||'admin@example.com'),env.VAPID_PUBLIC_KEY,env.VAPID_PRIVATE_KEY);
+  let sent=0,failed=0;
+  for(const sub of subs||[]){
+    const hashBytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('test|'+runId+'|'+sub.user_id+'|'+sub.endpoint));
+    const id=Array.from(new Uint8Array(hashBytes),b=>b.toString(16).padStart(2,'0')).join('');
+    const {data:existing,error:lookupError}=await client.from('push_delivery_log').select('id').eq('id',id).maybeSingle();
+    if(lookupError)throw lookupError;
+    if(existing)continue;
+    try{
+      await webpush.sendNotification(sub.subscription,JSON.stringify({body:'Minik bir deneme bildirimi 💗 Bildirim sistemimiz artık Cloudflare\'da!'}));
+      const {error:logError}=await client.from('push_delivery_log').insert({id,user_id:sub.user_id,predicted_date:new Date().toISOString().slice(0,10)});
+      if(logError)throw logError;
+      sent++;
+    }catch(e){failed++;console.error('Test push failed:',e.message)}
+  }
+  console.log('One-time targeted test',JSON.stringify({sent,failed}));
+}
 export default {
-  async scheduled(_event,env,ctx){ctx.waitUntil(sendReminders(env).then(result=>console.log('Reminder run',JSON.stringify(result))))},
+  async scheduled(event,env,ctx){ctx.waitUntil(event.cron==='*/5 * * * *'?sendOneTimeTest(env):sendReminders(env).then(result=>console.log('Reminder run',JSON.stringify(result))))},
   async fetch(){return new Response('My Cycle reminders worker is running.',{status:200})}
 };
