@@ -6,7 +6,7 @@ const days=(a,b)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00
 function nextDate(starts,cycle,today){
   if(!starts.length)return null;
   const gaps=[];
-  for(let i=1;i<starts.length;i++){const d=days(starts[i-1],starts[i]);if(d>=15&&d<=60)gaps.push(d)}
+  for(let i=1;i<starts.length;i++){const d=days(starts[i-1],starts[i]);if(d>0)gaps.push(d)}
   const length=gaps.length>=2?Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length):cycle;
   let candidate=plus(starts[starts.length-1],length);
   for(let i=0;i<300&&candidate<today;i++)candidate=plus(candidate,length);
