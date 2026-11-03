@@ -64,6 +64,29 @@ try{const r=exists?await client.from('periods').delete().eq('user_id',user.id).e
 data.starts=exists?data.starts.filter(x=>x!==s):[...new Set([...data.starts,s])].sort();render();status('Buluta kaydedildi ✓')}
 catch(e){status('Kaydedilemedi: '+err(e))}finally{busy=false}}
 function showSettings(on){$('mainHeader').hidden=on;$('account').hidden=on;$('cloudStatus').hidden=on;$('home').hidden=on;$('settings').hidden=!on;$('settings').classList.toggle('open',on);$('settingsBtn').classList.toggle('hidden',on);$('settingsBtn').hidden=on;if(on){$('cycle').value=data.cycle;$('duration').value=data.duration;$('displayName').value=user?.user_metadata?.display_name||''}}
+// Swipe horizontally across the calendar days to navigate months; vertical scrolling stays native.
+const calendarDays=$('days');
+calendarDays.style.touchAction='pan-y';
+let swipeStart=null;
+calendarDays.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1){swipeStart=null;return}
+  const t=e.touches[0];swipeStart={x:t.clientX,y:t.clientY};
+},{passive:true});
+calendarDays.addEventListener('touchend',e=>{
+  if(!swipeStart||!e.changedTouches.length)return;
+  const t=e.changedTouches[0],dx=t.clientX-swipeStart.x,dy=t.clientY-swipeStart.y;
+  swipeStart=null;
+  if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.3)return;
+  shown=new Date(shown.getFullYear(),shown.getMonth()+(dx<0?1:-1),1);
+  render();
+  // Suppress the synthetic click on a day after a horizontal swipe.
+  suppressCalendarClickUntil=Date.now()+450;
+},{passive:true});
+calendarDays.addEventListener('touchcancel',()=>{swipeStart=null},{passive:true});
+let suppressCalendarClickUntil=0;
+calendarDays.addEventListener('click',e=>{
+  if(Date.now()<suppressCalendarClickUntil){e.preventDefault();e.stopPropagation()}
+},true);
 $('prev').onclick=()=>{shown=new Date(shown.getFullYear(),shown.getMonth()-1,1);render()};
 $('next').onclick=()=>{shown=new Date(shown.getFullYear(),shown.getMonth()+1,1);render()};
 $('todayBtn').onclick=()=>{const now=new Date();shown=new Date(now.getFullYear(),now.getMonth(),1);render()};
