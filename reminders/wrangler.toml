@@ -2,6 +2,7 @@ name = "mycycle-reminders"
 main = "src/index.js"
 compatibility_date = "2026-11-03"
 compatibility_flags = ["nodejs_compat"]
+keep_vars = true
 
 [triggers]
 crons = ["0 9 * * *", "*/5 * * * *"]
