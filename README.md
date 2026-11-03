@@ -1,6 +1,6 @@
 # My Cycle 🌸 — Proje ve Devralma Rehberi
 
-> **Durum (3 Kasım 2026):** Üretim frontend'i Cloudflare Workers Static Assets, zamanlanmış push hatırlatıcısı ayrı Cloudflare Worker, kimlik doğrulama ve veriler Supabase üzerindedir. Netlify eski altyapıdır ve artık kullanılmamalıdır.
+> **Durum (3 Kasım 2026):** Üretim frontend'i Cloudflare Workers Static Assets, zamanlanmış push hatırlatıcısı ayrı Cloudflare Worker, kimlik doğrulama ve veriler Supabase üzerindedir.
 >
 > Bu belge, mevcut projeyi **devralmak, çalıştırmak, değiştirmek, yeniden yayınlamak ve gerekirse başka bir hesapta yeniden kurmak** için hazırlanmıştır. GitHub'a **asla** Supabase service-role anahtarı, VAPID private key veya kullanıcı parolası eklemeyin.
 
@@ -18,17 +18,16 @@
 | Kimlik doğrulama | Supabase Auth, e-posta / parola |
 | Mobil kurulum | PWA: `manifest.webmanifest`, `sw.js` |
 | Planlanmış bildirim | `0 9 * * *` UTC (Türkiye saati 12:00) |
-| Önceki platform | Netlify — artık devre dışı bırakılmalı |
 
 **Önemli:** Frontend ve hatırlatıcı **iki ayrı Worker**. Birini deploy etmek diğerini güncellemez. GitHub'a commit atmak, Cloudflare'da otomatik GitHub build bağlantısı kapalıysa üretimi güncellemez.
 
 ## 2. Hikâye: Nereden nereye geldik?
 
 1. **İlk sürüm:** Tek dosyalı, pembe/bordo/krem tonlarında kişisel regl takip ekranı; başlangıç kayıtları tarayıcı `localStorage` alanındaydı.
-2. **GitHub ve Netlify:** Statik frontend Netlify üzerinden yayınlandı; daha sonra Netlify Functions ile günlük push hatırlatıcısı eklendi.
+2. **GitHub:** Kaynak kod sürüm kontrolüne alındı; statik frontend ve hatırlatma altyapısı geliştirildi.
 3. **Buluta geçiş:** Supabase Auth ile giriş ve PostgreSQL tabloları ile kullanıcıya bağlı kalıcı kayıtlar eklendi. Eski `my-cycle-v1` localStorage kayıtlarını hesaba aktarma seçeneği korundu.
 4. **PWA ve push:** Manifest, service worker, VAPID Web Push abonelikleri, cihaz bazlı aç/kapat ve gönderim günlüğü eklendi.
-5. **Cloudflare'a geçiş:** Netlify kota/deploy engeli nedeniyle frontend `mycycle` Worker'ına, cron hatırlatıcıları `mycycle-reminders` Worker'ına taşındı.
+5. **Cloudflare mimarisi:** Frontend `mycycle` Worker'ında, cron hatırlatıcıları `mycycle-reminders` Worker'ında çalışacak şekilde ayrıldı.
 6. **Gerçek cihaz doğrulaması:** iPhone ana ekranına kurulu uygulamada hedefli test bildirimi **başarıyla alındı**.
 7. **Güncel deneyim:** “Geçmişin” liste bölümü kaldırıldı (kayıtlar silinmedi); sonraki regl için geri sayım, “Bugün” düğmesi, takvimde sağ/sol swipe, yumuşak ay geçişi, 6 satır sabit takvim ve ortalanmış açıklamalar eklendi.
 8. **Döngü hesabı:** 15–60 gün aralığı filtresi kaldırıldı; ardışık başlangıçların tüm **pozitif** gün farkları istatistik ve tahminde kullanılıyor. Hatırlatıcı da aynı yöntemi kullanıyor.
@@ -129,7 +128,7 @@ Supabase panelinde:
 | `push_subscriptions` | `user_id`, `endpoint`, `subscription`, `enabled` | Cihaz başına Web Push aboneliği; `endpoint` upsert çakışma anahtarı |
 | `push_delivery_log` | `id`, `user_id`, `predicted_date` | Aynı abonelik / tahmini tarih için mükerrer gönderimi azaltma |
 
-**Şema notu:** Bu repoda doğrulanmış SQL migration dosyası yok. Bu tablo, uygulama sorgularından çıkarılmış **alan sözleşmesidir**; mevcut Supabase projesindeki tam SQL türlerini, PK/FK, index, default, RLS ve grant'leri SQL Editor'dan **export ederek ayrıca sürüm kontrolüne alın**. Bu olmadan farklı bir Supabase projesinde birebir yeniden kurulum garanti edilemez. Aşağıdaki örnek yalnızca başlangıç taslağıdır; mevcut üretim şemasını sorgulamadan uygulamayın.
+**Şema notu:** Yeni, boş bir Supabase projesi için çalıştırılabilir başlangıç şeması ve kullanıcı bazlı RLS politikaları [`supabase/schema.sql`](supabase/schema.sql) dosyasındadır. Bu dosya uygulama sorgularından türetilmiştir; **mevcut üretim şemasının doğrulanmış export'u değildir**. Üretimdeki gerçek SQL türlerini, index'leri, politikaları ve grant'leri karşılaştırmak için [`supabase/inspect-production.sql`](supabase/inspect-production.sql) sorgularını Supabase SQL Editor'da yalnızca okuyarak çalıştırın. Bu doğrulama tamamlanmadan canlı veritabanına bootstrap SQL uygulamayın.
 
 ```sql
 -- MEVCUT PROJEYE KÖRLEMESİNE UYGULAMAYIN; YENİ KURULUM TASLAĞI
@@ -165,7 +164,7 @@ create policy "subscriptions owner" on public.push_subscriptions for all to auth
 -- Delivery log yalnızca service-role tarafından kullanılmalı; authenticated için politika açmayın.
 ```
 
-**Üretim güvenlik kontrolü:** `anon` ve `authenticated` rolleri yalnızca gerekli işlemleri yapabilmeli; RLS testini farklı iki kullanıcı hesabıyla doğrulayın. `service_role` RLS'yi atlayabilir, dolayısıyla sadece sunucuda kullanılır. `push_subscriptions.subscription` push endpoint/anahtar bilgileri içerir; hassas veri olarak ele alın. Supabase yedekleme ve veri saklama/silme politikalarını ayrıca yapılandırın.
+**Yeni kurulum:** Supabase'de boş proje oluşturup `supabase/schema.sql` dosyasını SQL Editor'da çalıştırın; sonra Auth e-posta/parola sağlayıcısını ve URL yapılandırmasını tamamlayın. **Üretim güvenlik kontrolü:** `anon` ve `authenticated` rolleri yalnızca gerekli işlemleri yapabilmeli; RLS testini farklı iki kullanıcı hesabıyla doğrulayın. `service_role` RLS'yi atlayabilir, dolayısıyla sadece sunucuda kullanılır. `push_subscriptions.subscription` push endpoint/anahtar bilgileri içerir; hassas veri olarak ele alın. Supabase yedekleme ve veri saklama/silme politikalarını ayrıca yapılandırın.
 
 ### 6.3 Kullanıcı akışları
 
@@ -292,22 +291,7 @@ Cloudflare → `mycycle-reminders` → Observability → Logs bölümünden de i
 - [ ] iPhone PWA bildirim izni/abonelik durumu korunuyor.
 - [ ] Tarayıcı ve PWA görünümü aynı sürümde.
 
-## 10. Netlify'yı tamamen kapatma (hesap tarafı)
-
-**Kod temizliği tek başına Netlify'daki siteyi silmez.** Bu adımları Netlify panelinde yetkili kullanıcı yapmalı:
-
-1. Önce Cloudflare frontend ve günlük cron'un çalıştığını doğrulayın.
-2. Netlify Dashboard'da eski `myperiodcycle.netlify.app` sitesini seçin.
-3. **Site configuration / General / Danger zone** bölümündeki **Delete site** (arayüz adı değişebilir) işlemiyle eski siteyi kaldırın. Bu, eski `netlify.app` URL'sini de kapatır; geri dönüş gerekebilecekse önce arşivleyin.
-4. Netlify'da varsa eski siteye bağlı GitHub otomatik deploy bağlantısını ve siteye özel environment variables'ı kontrol edin.
-5. Eski Netlify scheduled function'ın artık çalışmadığını doğrulayın; aynı anda iki hatırlatıcı çalışması istenmez.
-6. Netlify hesabını **tamamen kapatmak** site silmekten farklıdır: başka site veya abonelik yoksa Account Settings üzerinden ayrıca hesap kapatma / ödeme ayarlarını değerlendirin.
-7. Supabase Auth Redirect URLs / Site URL içinde eski Netlify adresi varsa, Cloudflare akışları test edildikten sonra kaldırın.
-8. iPhone'da **Netlify alan adından** kurulmuş eski PWA varsa yeni Cloudflare alan adıyla karıştırmayın. Farklı origin'lerin service worker ve push abonelikleri birbirinden bağımsızdır.
-
-Bu repo artık Netlify yapılandırması ve fonksiyon kodu içermemelidir. GitHub dosyalarını kaldırmak **Netlify hesabındaki siteyi otomatik silmez**.
-
-## 11. Hata çözümü
+## 10. Hata çözümü
 
 | Belirti | Olası sebep | Kontrol / çözüm |
 | --- | --- | --- |
@@ -322,7 +306,7 @@ Bu repo artık Netlify yapılandırması ve fonksiyon kodu içermemelidir. GitHu
 | Takvimde beklenmedik tahmin | Hatalı başlangıç tarihi / az veri | Kayıtları ve `cycleIntervals` hesabını kontrol edin |
 | Deploy yaptım ama değişmedi | Yanlış Worker veya PWA cache | Deploy çıktısındaki isim, üretim URL'si, Safari/PWA karşılaştırması |
 
-## 12. Güvenlik, bakım ve devralma
+## 11. Güvenlik, bakım ve devralma
 
 - GitHub repo erişimlerini ve Cloudflare/Supabase rollerini en az yetkiyle verin.
 - `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY`, kullanıcı parolaları ve tam push subscription payload'larını commit/log paylaşımına koymayın.
@@ -333,11 +317,11 @@ Bu repo artık Netlify yapılandırması ve fonksiyon kodu içermemelidir. GitHu
 - **Yeniden kurulumda** VAPID anahtar çiftini yeni üretebilirsiniz; ancak mevcut kullanıcı aboneliklerini korumak istiyorsanız mevcut çifti güvenli kasadan geri alın.
 - Tarayıcıdan `index.html` kaynak kodu görülebilir; frontend'e hiçbir gizli anahtar koymayın.
 - Üretim değişikliklerinden önce `git status`, sonra `git pull`; iki Worker'ı yalnızca ilgili kod değişmişse deploy edin.
-- Yeni bakımcı için eksik kritik artefakt: **Supabase üretim şemasının ve RLS politikalarının sürümlenmiş SQL migration/export'u**. Bu tamamlanmadan “tamamen sıfırdan otomatik kurulum” iddiasında bulunmayın.
+- Yeni bakımcı için doğrulanması gereken kritik artefakt: **Supabase üretim şemasının ve RLS politikalarının gerçek export'u**. `supabase/schema.sql` şu anda yeniden kurulum taslağıdır. Bu tamamlanmadan “tamamen sıfırdan otomatik kurulum” iddiasında bulunmayın.
 
-## 13. Gelecek iyileştirmeler
+## 12. Gelecek iyileştirmeler
 
-1. Supabase SQL migration'ları, RLS testleri ve seed/test verisi.
+1. `supabase/schema.sql` taslağını gerçek üretim şemasıyla karşılaştırıp doğrulanmış migration'lara dönüştürmek; RLS testleri ve seed/test verisi.
 2. Frontend için açık ve takip edilen Cloudflare Wrangler config'i (kök dizinde tesadüfi `wrangler.jsonc` bağımlılığı olmadan).
 3. Service worker sürüm güncelleme / cache yönetimi; iPhone PWA'nın eski ekranı göstermesini azaltma.
 4. Döngü hesabı için birim testleri (ay sonu, yıl sonu, artık yıl, az kayıt, aykırı değer).
@@ -346,4 +330,4 @@ Bu repo artık Netlify yapılandırması ve fonksiyon kodu içermemelidir. GitHu
 
 ---
 
-**Operasyon özeti:** `git pull` → yalnızca değişen Worker'ı deploy et → Cloudflare Variables/Secrets kontrolü → Safari ve iPhone PWA kontrolü → cron/log kontrolü. **Netlify'ya artık deploy yapılmaz.**
+**Operasyon özeti:** `git pull` → yalnızca değişen Worker'ı deploy et → Cloudflare Variables/Secrets kontrolü → Safari ve iPhone PWA kontrolü → cron/log kontrolü.
