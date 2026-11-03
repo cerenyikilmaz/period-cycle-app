@@ -5,4 +5,4 @@ compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 
 [triggers]
-crons = ["0 9 * * *", "*/5 * * * *"]
+crons = ["0 9 * * *"]
